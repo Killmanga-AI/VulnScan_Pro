@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/database/vulnscan.db
+      - STRIPE_SECRET_KEY=${stripe keys goes here}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command:
+      - redis-server --appendonly
+
+
+  celery:
+    build: .
+    command: celery -A app.tasks worker --loglevel=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - web
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "433:433"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+
+
+
+

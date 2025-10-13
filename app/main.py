@@ -1,8 +1,21 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
 from datetime import datetime
+from app.config import settings
 
-from app.config import get_settings
-from app.core.database import init_db
+app = FastAPI(
+    title= "VulnScan Pro",
+    description="AI-powered Web Security Scanner",
+    version="1.0.0",
+)
+
+@app.get("/")
+async def root():
+    return {"message": "VulnScan Pro API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy","timestamp": datetime.now().isoformat()}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

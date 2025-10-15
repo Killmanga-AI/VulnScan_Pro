@@ -13,7 +13,7 @@
 - Database design
 - FastAPI foundation
 
-### In Progress  
+## #In Progress  
 - Core vulnerability scanning engine
 - Web interface development
 
@@ -40,7 +40,7 @@
 - [ ] Advanced reporting
 - [ ] Mobile optimization
 
-## 🛠️ Quick Start
+## Quick Start
 
 ```bash
 git clone https://github.com/Killmanga-AI/VulnScan_Pro.git

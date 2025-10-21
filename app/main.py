@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from starlette.staticfiles import StaticFiles
 
 # All imports from my integrated database
 from app.core.database import get_db, User, Scan
 from app.services.scan_services import ScanService
 
 app = FastAPI(title="VulnScan Pro", version="1.0.0")
+
+#Serves static files such as html,css,js
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.post("/api/scans")
 async def create_scan(target_url: str, db: Session = Depends(get_db)):

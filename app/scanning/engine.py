@@ -2,15 +2,17 @@ import asyncio
 import aiohttp
 from datetime import datetime
 
-from fastapi.encoders import isoformat
+from app.scanning.vulnerabilities.sql_injection import check_sql_injection
+from app.scanning.vulnerabilities.xss import check_xss_vulnerabilities
+from app.scanning.vulnerabilities.security_headers import check_insecure_headers
 
 
 class ScanningEngine:
     def __init__(self):
         self.vulnerability_checks = [
-            self.check_sql_injection,
-            self.check_xss_vulnerablities,
-            self.check_insecure_headers
+            check_sql_injection,
+            check_xss_vulnerabilities,
+            check_insecure_headers
         ]
 
     async def scan_website(self, target_url: str):

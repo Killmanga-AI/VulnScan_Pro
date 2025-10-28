@@ -10,6 +10,11 @@ async def check_sql_injection(url: str):
                 test_url = f"{url}?id={payload}"
                 async with session.get(test_url) as response:
                     text_url = await response.text()
+
+                    #Simple pattern matching for SQL errors
+                    sql_errors = [
+                        "sql syntax","mysql_fetch","ora-","microsoft odbc","postgresql error","warning: mysql"
+                    ]
                     if any(error in text.lower() for error in ["sql syntax","mysql_fetch", "ora-"]):
                         vulnerabilities.append({
                             'type': 'SQL Injection',

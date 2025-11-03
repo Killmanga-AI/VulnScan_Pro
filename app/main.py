@@ -1,108 +1,55 @@
-from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-import uvicorn
+from fastapi.responses import FileResponse
+from app.core.database import Base, engine
+from app.routes import auth_routes, scan_routes
+import pathlib
 
-# -----------------------------
-# Database + Models imports
-# -----------------------------
-from app.core.database import get_db, Base, engine
-from app.core.models import User, Scan
-from app.services.scan_service import ScanService
-
-# -----------------------------
-# Initialize database
-# -----------------------------
-# Create all tables if they don't exist yet
+# Initialize DB
 Base.metadata.create_all(bind=engine)
 
-# -----------------------------
-# FastAPI app initialization
-# -----------------------------
-app = FastAPI(title="VulnScan Pro", version="1.0.0")
+# Create FastAPI app
+app = FastAPI(title="VulnScan Pro", version="1.0")
 
-# -----------------------------
-# Static files configuration
-# -----------------------------
-BASE_DIR = Path(__file__).resolve().parent
+# Allow frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For testing; restrict later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ------------------------------
+# Static Files Configuration
+# ------------------------------
+BASE_DIR = pathlib.Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 if not STATIC_DIR.exists():
-    raise RuntimeError(f"Static directory does not exist: {STATIC_DIR}")
+    raise RuntimeError(f"Static directory not found: {STATIC_DIR}")
 
-INDEX_HTML = STATIC_DIR / "index.html"
-if not INDEX_HTML.exists():
-    raise RuntimeError(f"Index HTML does not exist: {INDEX_HTML}")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# Serve Frontend (index.html)
+@app.get("/", include_in_schema=False)
+def serve_index():
+    index_path = STATIC_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail=f"index.html not found at {index_path}")
 
-# -----------------------------
-# Request models
-# -----------------------------
-class ScanRequest(BaseModel):
-    target_url: str
+# ------------------------------
+# Routers
+# ------------------------------
+app.include_router(auth_routes.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(scan_routes.router, prefix="/api/scan", tags=["Scanner"])
 
-# -----------------------------
-# Routes
-# -----------------------------
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    """Serve the web interface."""
-    return FileResponse(str(INDEX_HTML))
-
-
-@app.post("/api/scans")
-async def create_scan(request: ScanRequest, db: Session = Depends(get_db)):
-    """Start a vulnerability scan."""
-    scan_service = ScanService(db)
-    try:
-        scan_id = await scan_service.start_scan(user_id=1, target_url=request.target_url)
-        return {
-            "scan_id": scan_id,
-            "status": "started",
-            "message": f"Scan started for {request.target_url}"
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/api/scans/{scan_id}")
-async def get_scan(scan_id: int, db: Session = Depends(get_db)):
-    """Retrieve scan results."""
-    scan_service = ScanService(db)
-    results = scan_service.get_scan_results(scan_id)
-    if not results:
-        raise HTTPException(status_code=404, detail="Scan not found")
-    return results
-
-
-@app.get("/api/users/{user_id}")
-async def get_user(user_id: int, db: Session = Depends(get_db)):
-    """Get user information."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {
-        "id": user.id,
-        "email": user.email,
-        "scan_credits": user.scan_credits,
-        "plan_tier": user.plan_tier,
-        "created_at": user.created_at
-    }
-
-
-@app.get("/{full_path:path}", response_class=FileResponse)
-async def spa_fallback(full_path: str):
-    """Fallback for single-page frontend routing."""
-    if full_path.startswith("api/") or full_path == "api":
-        raise HTTPException(status_code=404)
-    return FileResponse(str(INDEX_HTML))
-
-# -----------------------------
-# Entry point
-# -----------------------------
-if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+# ------------------------------
+# Debug on startup
+# ------------------------------
+@app.on_event("startup")
+def log_static_path():
+    print(f" Static files being served from: {STATIC_DIR}")
+    print(f" Index file expected at: {STATIC_DIR / 'index.html'}")

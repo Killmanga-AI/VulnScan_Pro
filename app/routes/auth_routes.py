@@ -1,0 +1,70 @@
+# app/routes/auth_routes.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from passlib.context import CryptContext
+from datetime import timedelta, timezone, datetime
+from typing import Dict
+
+from app.core.database import get_db
+from app.core.models import User
+from app.core.auth import create_access_token
+
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    full_name: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/register")
+def register_user(payload: UserRegister, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == payload.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed_password = pwd_context.hash(payload.password)
+    new_user = User(
+        email=payload.email,
+        full_name=payload.full_name,
+        hashed_password=hashed_password,
+        scan_credits=5,
+        plan_tier="free"
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # Return user info (no password)
+    return {
+        "message": "User created successfully",
+        "user_id": new_user.id,
+        "scan_credits": new_user.scan_credits
+    }
+
+
+@router.post("/login")
+def login_user(payload: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == payload.email).first()
+    if not db_user or not pwd_context.verify(payload.password, db_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Create token payload (minimal)
+    token_data: Dict[str, str] = {"sub": str(db_user.id), "email": db_user.email}
+    # Optionally shorten expiration
+    access_token = create_access_token(token_data, expires_delta=timedelta(minutes=60 * 24))
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": db_user.id,
+        "email": db_user.email,
+        "scan_credits": db_user.scan_credits
+    }

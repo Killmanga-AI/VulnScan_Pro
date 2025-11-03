@@ -3,6 +3,7 @@ import aiohttp
 from datetime import datetime
 
 from app.scanning.vulnerabilities.sql_injection import check_sql_injection
+from app.scanning.vulnerabilities.ssl_tls import check_ssl_tls
 from app.scanning.vulnerabilities.xss import check_xss_vulnerabilities
 from app.scanning.vulnerabilities.security_headers import check_insecure_headers
 
@@ -12,7 +13,8 @@ class ScanningEngine:
         self.vulnerability_checks = [
             check_sql_injection,
             check_xss_vulnerabilities,
-            check_insecure_headers
+            check_insecure_headers,
+            check_ssl_tls
         ]
 
     async def scan_website(self, target_url: str):
@@ -34,7 +36,7 @@ class ScanningEngine:
             'risk_score' : self.calculate_risk_score(vulnerabilities),
             'scan_timestamp': datetime.now().isoformat()
         }
-    def calculate_risk_score(self, vulnerabilities):
+    def calculate_risk_score(self, vulnerabilities: list) -> float:
         if not vulnerabilities:
             return 0.0
         scores = {'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}

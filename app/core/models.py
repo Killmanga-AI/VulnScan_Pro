@@ -9,8 +9,10 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
+    plan_tier = Column(String, default="free")
     scan_credits = Column(Integer, default=5)
     scans = relationship("Scan", back_populates="user")
+
 class Scan(Base):
     __tablename__ = "scans"
 

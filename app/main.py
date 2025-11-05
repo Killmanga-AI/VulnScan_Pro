@@ -10,7 +10,7 @@ import pathlib
 Base.metadata.create_all(bind=engine)
 
 # Create FastAPI app
-app = FastAPI(title="VulnScan Pro", version="1.0")
+app = FastAPI(title="VulnScan Pro", version="1.0.0")
 
 # Allow frontend access
 app.add_middleware(

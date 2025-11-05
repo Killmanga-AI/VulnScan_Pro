@@ -1,94 +1,44 @@
 // ============================
-// AUTH + SCAN FRONTEND LOGIC
+// VulnScan Pro - Frontend JS
 // ============================
 
 // --------------------
-// Helper Functions
+// Helpers
 // --------------------
 
-// Get JWT token from storage
+const TokenKey = 'token';
+const UserKey = 'userName';
+
 function getToken() {
-    return localStorage.getItem('token');
+    return localStorage.getItem(TokenKey);
 }
 
-// Save JWT token
 function saveToken(token) {
-    localStorage.setItem('token', token);
+    localStorage.setItem(TokenKey, token);
 }
 
-// Remove token (logout)
 function clearToken() {
-    localStorage.removeItem('token');
+    localStorage.removeItem(TokenKey);
+    localStorage.removeItem(UserKey);
+}
+
+function saveUserName(name) {
+    localStorage.setItem(UserKey, name);
+}
+
+function getUserName() {
+    return localStorage.getItem(UserKey);
 }
 
 // --------------------
-// Auth Functions
+// UI State
 // --------------------
 
-// Register a new user
-async function registerUser(email, password, fullName) {
-    try {
-        const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, full_name: fullName })
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Registration failed');
-        }
-
-        alert(' Registration successful! You can now log in.');
-        document.getElementById('registerForm').reset();
-    } catch (error) {
-        alert('❌ ' + error.message);
-    }
-}
-
-// Login and store JWT token
-async function loginUser(email, password) {
-    try {
-        const params = new URLSearchParams();
-        params.append('username', email);
-        params.append('password', password);
-
-        const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Invalid credentials');
-        }
-
-        const data = await response.json();
-        saveToken(data.access_token);
-
-        showLoggedInState();
-        alert(' Logged in successfully!');
-    } catch (error) {
-        alert(' Login failed: ' + error.message);
-    }
-}
-
-// Logout function
-function logout() {
-    clearToken();
-    showLoggedOutState();
-    alert(' Logged out successfully.');
-}
-
-// --------------------
-// UI State Handling
-// --------------------
-
-function showLoggedInState() {
+function showLoggedInState(userName = '') {
     document.getElementById('authForms').classList.add('hidden');
     document.getElementById('userInfo').classList.remove('hidden');
     document.getElementById('scannerSection').classList.remove('hidden');
+    document.getElementById('userEmail').textContent = userName;
 }
 
 function showLoggedOutState() {
@@ -98,25 +48,79 @@ function showLoggedOutState() {
 }
 
 // --------------------
-// SCAN Logic (Protected Route)
+// Auth Functions
+// --------------------
+
+async function registerUser(email, password, fullName) {
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), password: password.trim(), full_name: fullName.trim() })
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('Registration error:', text);
+            throw new Error('Registration failed');
+        }
+
+        alert('✅ Registration successful! You can now log in.');
+        document.getElementById('registerForm').reset();
+    } catch (error) {
+        alert('❌ ' + error.message);
+    }
+}
+
+async function loginUser(email, password) {
+    try {
+        const params = new URLSearchParams();
+        params.append('username', email.trim());
+        params.append('password', password.trim());
+
+        const response = await fetch('/api/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('Login error:', text);
+            throw new Error('Invalid credentials');
+        }
+
+        const data = await response.json();
+        saveToken(data.access_token);
+        saveUserName(data.full_name || data.email);
+
+        showLoggedInState(data.full_name || data.email);
+        alert('✅ Logged in successfully!');
+        document.getElementById('loginForm').reset();
+    } catch (error) {
+        alert('❌ Login failed: ' + error.message);
+    }
+}
+
+function logout() {
+    clearToken();
+    showLoggedOutState();
+    alert('✅ Logged out successfully.');
+}
+
+// --------------------
+// Scan Functions
 // --------------------
 
 async function startScan() {
-    const targetUrl = document.getElementById('targetUrl').value;
+    const targetUrl = document.getElementById('targetUrl').value.trim();
     const loading = document.getElementById('loading');
     const results = document.getElementById('results');
     const resultsContent = document.getElementById('resultsContent');
     const token = getToken();
 
-    if (!targetUrl) {
-        alert('Please enter a website URL');
-        return;
-    }
-
-    if (!token) {
-        alert('You must be logged in to run a scan!');
-        return;
-    }
+    if (!targetUrl) return alert('Please enter a website URL');
+    if (!token) return alert('You must be logged in to run a scan!');
 
     try {
         loading.style.display = 'block';
@@ -124,18 +128,12 @@ async function startScan() {
 
         const response = await fetch('/api/scan/start', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_url: targetUrl })
         });
 
         const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || 'Scan failed');
-        }
+        if (!response.ok) throw new Error(data.detail || 'Scan failed');
 
         resultsContent.innerHTML = `
             <p><strong>Target:</strong> ${data.result.url}</p>
@@ -147,6 +145,7 @@ async function startScan() {
 
         results.style.display = 'block';
     } catch (error) {
+        console.error('Scan error:', error);
         alert('❌ ' + error.message);
     } finally {
         loading.style.display = 'none';
@@ -154,37 +153,37 @@ async function startScan() {
 }
 
 // --------------------
-// EVENT LISTENERS
+// Event Listeners
 // --------------------
 
 document.addEventListener('DOMContentLoaded', () => {
     const savedToken = getToken();
-    if (savedToken) {
-        showLoggedInState();
-    } else {
-        showLoggedOutState();
-    }
+    const savedName = getUserName();
 
-    // Login
+    if (savedToken && savedName) showLoggedInState(savedName);
+    else showLoggedOutState();
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        await loginUser(email, password);
+        await loginUser(
+            document.getElementById('loginEmail').value,
+            document.getElementById('loginPassword').value
+        );
     });
 
-    // Register
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const fullName = document.getElementById('registerName').value;
-        const email = document.getElementById('registerEmail').value;
-        const password = document.getElementById('registerPassword').value;
-        await registerUser(email, password, fullName);
+        await registerUser(
+            document.getElementById('registerEmail').value,
+            document.getElementById('registerPassword').value,
+            document.getElementById('registerName').value
+        );
     });
 
-    // Scan
     document.getElementById('scanForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         await startScan();
     });
+
+    document.getElementById('logoutBtn')?.addEventListener('click', logout);
 });

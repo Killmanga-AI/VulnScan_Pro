@@ -1,16 +1,16 @@
 
 VulnScan Pro
 
-AI-Powered Web Security Scanner — Built for Developers Who Actually Build Things
+AI-enhanced Web Security Scanner — Built for Developers Actually needs
 
-> A solo-built security testing platform designed to detect the vulnerabilities that others miss — fast, simple, and affordable.
+> A solo-built security testing platform designed to detect the vulnerabilities that others miss. It's fast, simple, and affordable.
 
 
 
 
 Project Overview
 
-VulnScan Pro is an AI-assisted web vulnerability scanner that helps developers, freelancers, and small teams identify real-world security flaws — especially business logic vulnerabilities that typical scanners overlook.
+VulnScan Pro is an AI-assisted web vulnerability scanner that helps developers, freelancers, and small teams identify real-world security flaws,especially business logic vulnerabilities that typical scanners overlook.
 
 I built this project to learn deeply about application security and build something practical that could evolve into a professional, enterprise-grade SaaS platform.
 
